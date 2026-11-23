@@ -20,8 +20,6 @@ This repository contains a Python workflow for (1) fitting cortical encoding mod
 | `smoke_test_pipeline.py` | Run synthetic-data checks and save a JSON pass/fail report. |
 | `simulated_data/` | Small example arrays for Steps 1–3; **not real participant data**. |
 
-**Other analysis files, if included:** `encoding_model_02EXTENDED-Copy1.ipynb` is an earlier notebook-based cortical encoding workflow. `generate_regressor.m`, `rating_jaccard_check.m`, `rating_plot.m`, and `rating_transform.m` concern knowledge-event annotation, event regressors, and agreement; `voxelwise_encoding_cluster_corr_new.m` and `voxelwise_encoding_group_analysis_npc.m` contain separate voxelwise MATLAB analyses. These MATLAB workflows are not invoked automatically by the three Python scripts.
-
 The legacy notebook contains machine-specific absolute paths. The command-line Python scripts provide a more portable interface using command-line arguments.
 
 ## 2. Software requirements
