@@ -78,7 +78,7 @@ def isolate_feature(weights, start_index, end_index):
 #         lambdas = params[1:1+K]
 #         alpha = params[1+K]
 
-#         X_scaled = np.hstack([(features_train[k] / (lambdas[k]**2)) for k in range(K)])  # 大复制
+#         X_scaled = np.hstack([(features_train[k] / (lambdas[k]**2)) for k in range(K)])  # Large intermediate allocation in the legacy implementation
 #         ws = X_scaled.T @ (kernel_weights[:, voxid] * alpha)
 #         primal_weights.append(ws)
 
@@ -91,55 +91,55 @@ def get_weights_from_kernel(banded_ridge_results, features_train):
     Groups voxels by optimal hyperparameters to avoid redundant memory allocation 
     and maximize matrix multiplication efficiency.
     """
-    # 获取超参数矩阵 (n_voxels, n_params)
+    # Retrieve the optimal hyperparameter matrix (n_voxels, n_params)
     voxelwise_optimal_hyperparameters = banded_ridge_results.get('optima')
     kernel_weights = banded_ridge_results.get('weights') # shape: (n_samples, n_voxels)
     
     n_voxels = kernel_weights.shape[1]
     K = len(features_train)
     
-    # 初始化输出权重矩阵
-    # 计算总特征维度
+    # Initialize the output weight matrix
+    # Calculate the total feature dimensionality
     total_feature_dim = sum([f.shape[1] for f in features_train])
     primal_weights = np.zeros((total_feature_dim, n_voxels))
     
-    # 1. 找到所有唯一的超参数组合
-    # axis=0 表示按行查找唯一值，return_inverse 用于稍后重构索引
+    # 1. Find all unique combinations of optimal hyperparameters
+    # axis=0 finds unique rows; return_inverse maps voxels to their parameter groups
     unique_params, inverse_indices = np.unique(voxelwise_optimal_hyperparameters, axis=0, return_inverse=True)
     
     print(f"Optimizing: Found {len(unique_params)} unique hyperparameter sets across {n_voxels} voxels.")
 
-    # 2. 遍历每一组唯一的超参数
+    # 2. Iterate over each unique hyperparameter combination
     for i, params in enumerate(unique_params):
-        # 找到属于这组超参数的所有体素索引
+        # Select all voxels assigned to this hyperparameter combination
         voxel_mask = (inverse_indices == i)
         
-        # 解析参数
-        # params结构通常是: [temporal_lambda, feature_lambda_1, ..., feature_lambda_K, alpha]
-        # 注意：这里需要根据 tikreg 具体返回的 params 结构微调，假设和你原代码逻辑一致
+        # Extract the model hyperparameters
+        # The expected layout is [temporal_lambda, feature_lambda_1, ..., feature_lambda_K, alpha]
+        # Verify this layout against the tikreg output; the original parameter ordering is assumed
         lambdas = params[1:1+K] 
         alpha = params[1+K]
         
-        # 3. 构建 X_scaled (只做一次!)
-        # 利用列表推导式处理除法，然后一次性 hstack
+        # 3. Build the scaled design matrix once for the entire parameter group
+        # Scale each feature matrix separately, then concatenate all feature matrices
         X_scaled_parts = []
         for k in range(K):
-            # 避免除以0，虽然在岭回归中lambda通常不为0
+            # Guard against division by zero in case a ridge parameter is zero
             denom = lambdas[k]**2 if lambdas[k] != 0 else 1e-10
             X_scaled_parts.append(features_train[k] / denom)
         
         X_scaled = np.hstack(X_scaled_parts) # Shape: (n_samples, n_features)
         
-        # 4. 批量计算权重
+        # 4. Compute the weights for all selected voxels in one batch
         # kernel_weights[:, voxel_mask] shape: (n_samples, n_subset_voxels)
-        # 我们需要对选中的体素应用 alpha
+        # Apply alpha to the selected voxels' kernel weights
         # broadcasting: (n_samples, n_subset_voxels) * scalar alpha
         current_kernel_weights = kernel_weights[:, voxel_mask] * alpha
         
-        # 矩阵乘法: (n_features, n_samples) @ (n_samples, n_subset_voxels) -> (n_features, n_subset_voxels)
+        # Matrix product: (n_features, n_samples) @ (n_samples, n_subset_voxels) -> (n_features, n_subset_voxels)
         ws_subset = X_scaled.T @ current_kernel_weights
         
-        # 5. 填入结果矩阵
+        # 5. Insert the computed weights into the output matrix
         primal_weights[:, voxel_mask] = ws_subset
 
     return primal_weights

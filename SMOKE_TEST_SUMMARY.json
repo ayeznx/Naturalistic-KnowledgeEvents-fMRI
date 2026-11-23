@@ -1,0 +1,31 @@
+{
+  "warning": "Only synthetic test arrays were used. This is not a scientific validation.",
+  "synthetic_data": {
+    "n_subjects": 10,
+    "n_cortical_parcels": 18,
+    "n_TRs": 160,
+    "n_event_blocks": 9,
+    "peri_event_timepoints": 7
+  },
+  "test_results": {
+    "step2_real": {
+      "status": "PASS",
+      "test_type": "real execution of supplied script(s)"
+    },
+    "step3_real_standalone": {
+      "status": "PASS",
+      "test_type": "real execution of supplied script(s)"
+    },
+    "step1_mock_interface": {
+      "status": "PASS",
+      "test_type": "MOCK tikreg fitting; real wrapper and original FDR function bodies"
+    },
+    "step2_to_step3_real": {
+      "status": "PASS",
+      "test_type": "real execution of supplied script(s)"
+    }
+  },
+  "step1_real_tikreg_tested": false,
+  "reason": "Required tikreg and optional neuroimaging packages are absent in the execution environment.",
+  "next_step": "Run python smoke_test_pipeline.py --step1 real after installing full dependencies."
+}

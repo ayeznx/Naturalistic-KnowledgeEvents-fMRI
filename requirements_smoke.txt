@@ -1,0 +1,8 @@
+# Basic dependencies for generator and smoke tests
+numpy
+scipy
+pandas
+matplotlib
+scikit-learn
+statsmodels
+joblib

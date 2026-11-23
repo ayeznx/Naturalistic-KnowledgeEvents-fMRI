@@ -4,7 +4,7 @@
 This script reorganizes the original encoding workflow while preserving its
 random TR-level split, HRF-convolution approach, calls to the original
 encoding/statistics helpers, feature-group weight contributions, and output
-filenames. See README_encoding_model.md for methodological qualifications.
+filenames. See README.md for documentation and methodological qualifications.
 
 External files REQUIRED:
     encoding_helpers.py
@@ -306,20 +306,35 @@ def run_original_statistical_helpers(
     result_dir.mkdir(parents=True, exist_ok=True)
     for name, observed in scores.items():
         prefix = NULL_PREFIXES[name]
-        null_dist = fdr_helpers.generate_null(
-            observed, n_permutations=n_permutations
+        # The supplied generate_null() returns (permutations, parcels).
+        # The supplied get_p_values() expects (parcels, permutations).
+        # This transpose changes only array orientation, not the null method.
+        null_dist = np.asarray(
+            fdr_helpers.generate_null(observed, n_permutations=n_permutations),
+            dtype=float,
         )
+        expected_null_shape = (n_permutations, observed.shape[1])
+        if null_dist.shape != expected_null_shape:
+            raise ValueError(
+                f"Unexpected null shape for {name}: {null_dist.shape}; "
+                f"expected {expected_null_shape}."
+            )
         null_filename = f"null_{prefix}_feature_dist{n_permutations}.npy"
         if name == "full":
             null_filename = f"null_all_feature_dist{n_permutations}.npy"
         np.save(output_dir / null_filename, null_dist)
-        print(f"Saved {null_filename}: shape={np.shape(null_dist)}")
+        print(f"Saved {null_filename}: shape={null_dist.shape}")
 
-        p_values = np.asarray(fdr_helpers.get_p_values(observed, null_dist))
-        if p_values.shape != observed.shape:
+        p_values = np.asarray(
+            fdr_helpers.get_p_values(observed, null_dist.T), dtype=float
+        )
+        # The supplied helper averages subject scores before testing: one
+        # p-value per parcel, NOT one p-value per subject and parcel.
+        expected_parcel_shape = (observed.shape[1],)
+        if p_values.shape != expected_parcel_shape:
             raise ValueError(
                 f"Unexpected p-value shape for {name}: {p_values.shape}; "
-                f"expected {observed.shape}."
+                f"expected {expected_parcel_shape}."
             )
         result_name = RESULT_PREFIXES[name]
         np.save(
@@ -328,10 +343,10 @@ def run_original_statistical_helpers(
         thresholded, n_significant = fdr_helpers.get_fdr_controlled(
             p_values, threshold=alpha, observed=observed
         )
-        if np.shape(thresholded) != observed.shape:
+        if np.shape(thresholded) != expected_parcel_shape:
             raise ValueError(
                 f"Unexpected thresholded score shape for {name}: "
-                f"{np.shape(thresholded)}; expected {observed.shape}."
+                f"{np.shape(thresholded)}; expected {expected_parcel_shape}."
             )
         alpha_suffix = f"{alpha:.10f}".rstrip("0").rstrip(".").split(".")[-1]
         # At alpha=0.05, this is "05" (matching the original filenames).
